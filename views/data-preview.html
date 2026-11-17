@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSV data preview</title>
+  <link rel="stylesheet" href="../styles.css">
+  <script src="../js/data-preview.js" defer></script>
+  <style>
+    html, body { height: 100%; min-width: 0; margin: 0; background: transparent; }
+    .data-preview-body { height: 100%; }
+    .data-preview-card { height: 100%; min-height: 420px; }
+    .data-preview-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 9px 14px;
+      border-bottom: 1px solid #edf0f4;
+    }
+    .data-preview-tabs[hidden] { display: none; }
+    .data-preview-tab {
+      min-height: 30px;
+      padding: 0 11px;
+      color: #74839a;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .data-preview-tab[aria-selected="true"] {
+      color: var(--green-dark);
+      background: var(--green-soft);
+      border-color: #d7eadc;
+    }
+    .data-preview-content {
+      min-height: 0;
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+    }
+    .data-preview-table-wrap {
+      min-height: 0;
+      flex: 1;
+      overflow: auto;
+    }
+    .data-preview-table {
+      width: 100%;
+      min-width: 600px;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .data-preview-table th, .data-preview-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #edf0f4;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    .data-preview-table th {
+      position: sticky;
+      top: 0;
+      color: #596a82;
+      background: #f6f8fb;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .data-preview-table td { color: #45556d; }
+    .data-preview-table td:first-child {
+      color: #8794a7;
+      background: #fafbfd;
+      font-variant-numeric: tabular-nums;
+    }
+    .data-preview-tab:focus-visible {
+      outline: 3px solid rgba(50, 155, 120, .25);
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="data-preview-body">
+  <section class="preview-card data-preview-card" aria-labelledby="data-preview-title">
+    <header class="preview-card-header">
+      <div>
+        <h2 id="data-preview-title">Data preview</h2>
+        <p id="data-preview-description">Your cleaned data will appear here</p>
+      </div>
+    </header>
+    <div class="data-preview-tabs" id="data-preview-tabs" role="tablist" aria-label="CSV data views" hidden>
+      <button class="data-preview-tab" id="cleaned-tab" type="button" role="tab" aria-selected="true">Cleaned file</button>
+      <button class="data-preview-tab" id="removed-tab" type="button" role="tab" aria-selected="false">Removed rows</button>
+    </div>
+    <div class="data-preview-content">
+      <div class="data-preview-table-wrap" id="data-preview-table-wrap"></div>
+    </div>
+    <footer class="preview-card-footer">
+      <span id="data-preview-row-count">Showing 0 rows</span>
+      <span id="data-preview-limit">Preview limited to first 100 rows</span>
+    </footer>
+  </section>
+</body>
+</html>
