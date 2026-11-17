@@ -895,6 +895,15 @@ body { font-size: 14px; }
   text-align: left;
 }
 
+.removed-rows-table caption {
+  padding: 10px 12px;
+  color: #596a82;
+  background: #f6f8fb;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
 .removed-rows-table th,
 .removed-rows-table td {
   padding: 9px 12px;
@@ -925,6 +934,33 @@ body { font-size: 14px; }
   padding-top: 4px;
 }
 
+.empty-cells-actions {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.empty-cells-actions > label {
+  color: #596a82;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.empty-cells-actions > input {
+  min-height: 40px;
+  padding: 0 10px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.empty-cells-actions > p {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .removed-rows-cancel,
 .removed-rows-confirm {
   min-width: 90px;
@@ -947,6 +983,8 @@ body { font-size: 14px; }
 }
 
 .removed-rows-confirm:hover { background: var(--green-dark); }
+.removed-rows-cancel:disabled,
+.removed-rows-confirm:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (max-width: 620px) {
   .removed-rows-modal { padding: 16px; }

@@ -16,6 +16,7 @@ let csvData = [];
 let cleanedCsvData = [];
 let removedRows = [];
 let pendingCleanup = null;
+let removeRowsWithEmptyCells = false;
 let selectionVersion = 0;
 let selectedFileName = "";
 let previewStatus = "empty";
@@ -47,6 +48,12 @@ function updateDataPreview() {
   }
 }
 
+function notifySourceDataChange(status) {
+  document.dispatchEvent(new CustomEvent("csv-cleaner:source-data-change", {
+    detail: { data: csvData, status }
+  }));
+}
+
 previewFrame.addEventListener("load", updateDataPreview);
 updateDataPreview();
 
@@ -64,6 +71,8 @@ function resetCleanedData() {
 function resetFileSelection() {
   selectionVersion += 1;
   csvData = [];
+  removeRowsWithEmptyCells = false;
+  notifySourceDataChange("empty");
   resetCleanedData();
   uploadName.textContent = "Drop your CSV file here";
   uploadStatus.textContent = "";
@@ -129,6 +138,8 @@ async function handleFileSelection() {
   const version = selectionVersion + 1;
   selectionVersion = version;
   csvData = [];
+  removeRowsWithEmptyCells = false;
+  notifySourceDataChange("reading");
   resetCleanedData();
   selectedRows.textContent = "0";
   selectedColumns.textContent = "0";
@@ -146,6 +157,7 @@ async function handleFileSelection() {
       return;
     }
 
+    notifySourceDataChange("loaded");
     const columnCount = records.reduce((count, record) => Math.max(count, record.length), 0);
     const rowCount = Math.max(records.length - 1, 0);
     selectedRows.textContent = String(rowCount);
@@ -170,6 +182,35 @@ clearFileButton.addEventListener("click", () => {
   resetFileSelection();
 });
 
+document.addEventListener("csv-cleaner:fill-empty-cells", event => {
+  const value = event.detail && event.detail.value;
+  if (typeof value !== "string" || value.trim() === "" || csvData.length === 0) {
+    throw new TypeError("Filling empty cells requires CSV data and a non-empty value.");
+  }
+
+  removeRowsWithEmptyCells = false;
+  const columnCount = csvData.reduce((count, row) => Math.max(count, row.length), 0);
+  csvData = [
+    csvData[0].slice(),
+    ...csvData.slice(1).map(row => Array.from({ length: columnCount }, (_, index) => {
+      const cell = row[index];
+      return String(cell ?? "").trim() === "" ? value : cell;
+    }))
+  ];
+  resetCleanedData();
+  previewStatus = "loaded";
+  uploadStatus.textContent = "Empty cells filled. Ready to clean.";
+  updateDataPreview();
+  notifySourceDataChange("loaded");
+});
+
+document.addEventListener("csv-cleaner:select-empty-cell-rows-for-removal", () => {
+  if (csvData.length === 0) {
+    throw new Error("Load a CSV file before selecting rows for removal.");
+  }
+  removeRowsWithEmptyCells = true;
+});
+
 cleanButton.addEventListener("click", () => {
   if (csvData.length === 0) {
     return;
@@ -190,9 +231,22 @@ cleanButton.addEventListener("click", () => {
   const emptyRows = status.removeEmptyRows
     ? dataRows.filter(row => row.values.every(value => String(value).trim() === ""))
     : [];
-  const rowsToClean = status.removeEmptyRows
-    ? dataRows.filter(row => !row.values.every(value => String(value).trim() === ""))
-    : dataRows;
+  const emptyRowNumbers = new Set(emptyRows.map(row => row.rowNumber));
+  const emptyCellRows = removeRowsWithEmptyCells
+    ? identifyEmptyColumns(cleanedData)
+      .map(values => ({
+        rowNumber: cleanedData.indexOf(values) + 1,
+        values,
+        reason: "Contains an empty cell"
+      }))
+      .filter(row => !emptyRowNumbers.has(row.rowNumber))
+    : [];
+  const rowsToRemove = [
+    ...emptyRows.map(row => ({ ...row, reason: "Empty row" })),
+    ...emptyCellRows
+  ];
+  const rowsToRemoveNumbers = new Set(rowsToRemove.map(row => row.rowNumber));
+  const rowsToClean = dataRows.filter(row => !rowsToRemoveNumbers.has(row.rowNumber));
 
   if (status.removeDuplicates) {
     pendingCleanup = {
@@ -200,36 +254,48 @@ cleanButton.addEventListener("click", () => {
       headers,
       rows: rowsToClean,
       emptyRows,
+      emptyCellRows,
       duplicateRows: []
     };
     document.dispatchEvent(new CustomEvent("csv-cleaner:confirm-removal", {
       detail: {
         type: "duplicates",
         headers,
-        emptyRows
+        emptyRows,
+        emptyCellRows
       }
     }));
     return;
   }
 
-  if (emptyRows.length > 0) {
+  if (rowsToRemove.length > 0) {
     pendingCleanup = {
-      type: "empty-rows",
+      type: "selected-rows",
       data: [headers, ...rowsToClean.map(row => row.values)],
-      rows: emptyRows
+      rows: rowsToRemove
     };
     document.dispatchEvent(new CustomEvent("csv-cleaner:confirm-removal", {
       detail: {
-        type: "empty-rows",
+        type: "selected-rows",
         headers,
-        rows: emptyRows,
-        rowCount: emptyRows.length
+        rows: rowsToRemove,
+        rowCount: rowsToRemove.length
       }
     }));
     return;
   }
 
-  applyCleanup([headers, ...rowsToClean.map(row => row.values)], []);
+  pendingCleanup = {
+    type: "cleanup",
+    data: [headers, ...rowsToClean.map(row => row.values)],
+    rows: []
+  };
+  document.dispatchEvent(new CustomEvent("csv-cleaner:confirm-removal", {
+    detail: {
+      type: "cleanup",
+      headers
+    }
+  }));
 });
 
 downloadButton.addEventListener("click", downloadCleanedCsv);
@@ -276,6 +342,7 @@ document.addEventListener("csv-cleaner:confirm-row-removal", () => {
     const duplicateRowNumbers = new Set(cleanup.duplicateRows.map(row => row.rowNumber));
     const removed = [
       ...cleanup.emptyRows.map(row => ({ ...row, reason: "Empty row" })),
+      ...cleanup.emptyCellRows,
       ...cleanup.duplicateRows.map(row => ({ ...row, reason: "Duplicate" }))
     ];
     const rows = cleanup.rows
@@ -320,6 +387,7 @@ document.addEventListener("csv-cleaner:duplicate-columns-change", event => {
       headers: pendingCleanup.headers,
       duplicateRows: pendingCleanup.duplicateRows,
       emptyRows: pendingCleanup.emptyRows,
+      emptyCellRows: pendingCleanup.emptyCellRows,
       columns
     }
   }));

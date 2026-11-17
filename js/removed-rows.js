@@ -18,7 +18,7 @@ function createTableCell(tagName, text) {
   return cell;
 }
 
-function renderRows(headers, rows, showReason) {
+function renderRows(headers, rows, showReason, caption = "") {
   const visibleRows = rows.slice(0, 100);
   const columnCount = Math.max(headers.length, ...visibleRows.map(row => row.values.length));
   const columnNames = Array.from({ length: columnCount }, (_, index) => {
@@ -30,6 +30,9 @@ function renderRows(headers, rows, showReason) {
   tableWrapper.className = "removed-rows-table-wrap";
   const table = document.createElement("table");
   table.className = "removed-rows-table";
+  if (caption) {
+    table.append(createTableCell("caption", caption));
+  }
   const tableHead = document.createElement("thead");
   const headerRow = document.createElement("tr");
   headerRow.append(createTableCell("th", "CSV row"));
@@ -75,7 +78,43 @@ function showEmptyRowConfirmation(detail) {
   } be removed. This cannot be undone. Continue?${
     detail.rows.length > 100 ? " Showing the first 100 rows below." : ""
   }`;
-  renderRows(detail.headers, detail.rows, false);
+  renderRows(detail.headers, detail.rows, false, "Empty rows selected for removal");
+  confirmationOpen = true;
+  removedRowsDialog.showModal();
+}
+
+function showSelectedRowsConfirmation(detail) {
+  confirmationType = "selected-rows";
+  removedRowsTitle.textContent = "Confirm row removal";
+  removedRowsKicker.textContent = "Confirm cleanup";
+  confirmRemoveRowsButton.textContent = "Remove rows";
+  duplicateColumns.hidden = true;
+  duplicateColumns.replaceChildren();
+  const emptyRowCount = detail.rows.filter(row => row.reason === "Empty row").length;
+  const emptyCellRowCount = detail.rows.filter(row => row.reason === "Contains an empty cell").length;
+  const emptyRowsText = emptyRowCount > 0
+    ? ` ${emptyRowCount} fully empty ${emptyRowCount === 1 ? "row" : "rows"}.`
+    : "";
+  const emptyCellsText = emptyCellRowCount > 0
+    ? ` ${emptyCellRowCount} ${emptyCellRowCount === 1 ? "row contains" : "rows contain"} empty cells.`
+    : "";
+  removedRowsSummary.textContent = `${detail.rows.length} rows selected for removal.${emptyRowsText}${emptyCellsText} This cannot be undone. Continue?${
+    detail.rows.length > 100 ? " Showing the first 100 rows below." : ""
+  }`;
+  renderRows(detail.headers, detail.rows, true, "Rows selected for removal");
+  confirmationOpen = true;
+  removedRowsDialog.showModal();
+}
+
+function showCleanupConfirmation() {
+  confirmationType = "cleanup";
+  removedRowsTitle.textContent = "Confirm cleanup";
+  removedRowsKicker.textContent = "Cleanup review";
+  confirmRemoveRowsButton.textContent = "Continue cleanup";
+  duplicateColumns.hidden = true;
+  duplicateColumns.replaceChildren();
+  removedRowsContent.replaceChildren();
+  removedRowsSummary.textContent = "No rows need removal. Continue with the selected cleanup options?";
   confirmationOpen = true;
   removedRowsDialog.showModal();
 }
@@ -118,7 +157,7 @@ function showDuplicateReview(detail) {
   fieldset.append(options);
   duplicateColumns.append(fieldset);
   removedRowsSummary.textContent = "Checking for duplicate rows across all columns...";
-  renderRows(detail.headers, [], true);
+  renderRows(detail.headers, [], true, "Rows selected for removal");
   confirmationOpen = true;
   removedRowsDialog.showModal();
   document.dispatchEvent(new CustomEvent("csv-cleaner:duplicate-columns-change", {
@@ -133,12 +172,18 @@ function updateDuplicateCandidates(detail) {
 
   const duplicateRows = detail.duplicateRows;
   const emptyRows = detail.emptyRows.map(row => ({ ...row, reason: "Empty row" }));
+  const emptyCellRows = detail.emptyCellRows.map(row => ({
+    ...row,
+    reason: "Contains an empty cell"
+  }));
   const rows = [
     ...emptyRows,
+    ...emptyCellRows,
     ...duplicateRows.map(row => ({ ...row, reason: "Duplicate" }))
   ].sort((first, second) => first.rowNumber - second.rowNumber);
   const duplicateCount = duplicateRows.length;
   const emptyCount = emptyRows.length;
+  const emptyCellCount = emptyCellRows.length;
   const columnCount = detail.columns.length;
   const duplicateText = `${duplicateCount} duplicate ${
     duplicateCount === 1 ? "row matches" : "rows match"
@@ -146,13 +191,16 @@ function updateDuplicateCandidates(detail) {
   const emptyText = emptyCount > 0
     ? ` ${emptyCount} empty ${emptyCount === 1 ? "row" : "rows"} will also be removed.`
     : "";
+  const emptyCellText = emptyCellCount > 0
+    ? ` ${emptyCellCount} ${emptyCellCount === 1 ? "row contains" : "rows contain"} empty cells and will also be removed.`
+    : "";
   const noColumnsText = columnCount === 0 ? " Select at least one column to search for duplicates." : "";
   const noMatchesText = duplicateCount === 0 ? " No matching duplicate rows were found." : "";
   const limitText = rows.length > 100 ? " Showing the first 100 rows below." : "";
 
-  removedRowsSummary.textContent = `${duplicateText}${emptyText}${noColumnsText}${noMatchesText}${limitText}`;
+  removedRowsSummary.textContent = `${duplicateText}${emptyText}${emptyCellText}${noColumnsText}${noMatchesText}${limitText}`;
   confirmRemoveRowsButton.textContent = rows.length > 0 ? "Remove selected rows" : "Continue cleanup";
-  renderRows(detail.headers, rows, true);
+  renderRows(detail.headers, rows, true, "Rows selected for removal");
 }
 
 function cancelRowRemoval() {
@@ -167,8 +215,21 @@ document.addEventListener("csv-cleaner:confirm-removal", event => {
     throw new TypeError("Cleanup confirmation requires column headers.");
   }
 
-  if (detail.type === "duplicates" && Array.isArray(detail.emptyRows)) {
+  if (detail.type === "duplicates" && Array.isArray(detail.emptyRows)
+    && Array.isArray(detail.emptyCellRows)) {
     showDuplicateReview(detail);
+    return;
+  }
+
+  if (detail.type === "cleanup") {
+    showCleanupConfirmation();
+    return;
+  }
+
+  if (detail.type === "selected-rows" && Array.isArray(detail.rows)
+    && Number.isInteger(detail.rowCount) && detail.rowCount > 0
+    && detail.rowCount === detail.rows.length) {
+    showSelectedRowsConfirmation(detail);
     return;
   }
 
@@ -184,7 +245,7 @@ document.addEventListener("csv-cleaner:confirm-removal", event => {
 document.addEventListener("csv-cleaner:duplicate-candidates", event => {
   if (!event.detail || !Array.isArray(event.detail.headers)
     || !Array.isArray(event.detail.duplicateRows) || !Array.isArray(event.detail.emptyRows)
-    || !Array.isArray(event.detail.columns)) {
+    || !Array.isArray(event.detail.emptyCellRows) || !Array.isArray(event.detail.columns)) {
     throw new TypeError("Duplicate review requires candidate rows and selected columns.");
   }
 

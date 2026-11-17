@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="js/papaparse.min.js" defer></script>
   <script src="js/removed-rows.js" defer></script>
+  <script src="js/empty-cells.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -196,7 +197,7 @@
                   <input type="checkbox" id="remove-duplicates">
                   <span class="option-switch" aria-hidden="true"></span>
                 </label>
-                <!-- <label class="cleanup-option">
+                <label class="cleanup-option">
                   <span class="option-icon empty-columns-option" aria-hidden="true">
                     <svg viewBox="0 0 18 18" fill="none">
                       <rect x="3" y="3" width="12" height="12" rx="1.2" stroke="currentColor" stroke-width="1.1"/>
@@ -204,12 +205,12 @@
                     </svg>
                   </span>
                   <span class="option-copy">
-                    <strong>Remove empty columns</strong>
-                    <small>Drop columns with no values</small>
+                    <strong>Show rows with empty cells</strong>
+                    <small>Review rows that contain blank values</small>
                   </span>
-                  <input type="checkbox" checked id="remove-empty-columns">
+                  <input type="checkbox" checked id="show-empty-cells">
                   <span class="option-switch" aria-hidden="true"></span>
-                </label> -->
+                </label>
               </div>
 
               <button class="clean-data-button" type="button" id="clean-button">
@@ -257,6 +258,36 @@
       <footer class="removed-rows-footer">
         <button class="removed-rows-cancel" id="cancel-removed-rows" type="button">Cancel</button>
         <button class="removed-rows-confirm" id="confirm-remove-rows" type="button">Remove rows</button>
+      </footer>
+    </section>
+  </dialog>
+
+  <dialog class="removed-rows-dialog" id="empty-cells-dialog" aria-labelledby="empty-cells-title" aria-describedby="empty-cells-summary">
+    <section class="removed-rows-modal">
+      <header class="removed-rows-header">
+        <div>
+          <p>Empty-cell review</p>
+          <h2 id="empty-cells-title">Rows with empty cells</h2>
+        </div>
+        <button class="removed-rows-close" id="close-empty-cells" type="button" aria-label="Close empty-cell review">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+      <p class="removed-rows-summary" id="empty-cells-summary">Select the empty-cell review option to inspect rows.</p>
+      <div class="removed-rows-content" id="empty-cells-content" aria-label="Rows containing empty cells"></div>
+      <div class="empty-cells-actions">
+        <label for="empty-cell-default-value">Default value for empty cells</label>
+        <input id="empty-cell-default-value" type="text">
+        <p id="empty-cells-action-status" role="status" aria-live="polite"></p>
+        <div class="removed-rows-footer">
+          <button class="removed-rows-cancel" id="remove-empty-cell-rows" type="button">Select rows for removal</button>
+          <button class="removed-rows-confirm" id="fill-empty-cells" type="button">Fill empty cells</button>
+        </div>
+      </div>
+      <footer class="removed-rows-footer">
+        <button class="removed-rows-cancel" id="close-empty-cells-footer" type="button">Close</button>
       </footer>
     </section>
   </dialog>
