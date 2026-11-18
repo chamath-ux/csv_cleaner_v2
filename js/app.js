@@ -1,5 +1,6 @@
 "use strict";
-
+console.log(window.dataLayer);
+console.log(typeof window.google_tag_manager);
 const fileInput = document.querySelector("#csv-file");
 const clearFileButton = document.querySelector("#clear-file-button");
 const uploadName = document.querySelector(".upload-copy strong");
